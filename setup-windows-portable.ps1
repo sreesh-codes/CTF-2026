@@ -76,9 +76,11 @@ if (Download-File "https://www.python.org/ftp/python/3.11.6/python-3.11.6-embed-
 
 # 2. 7-Zip Portable
 Write-Host "[2/12] 7-Zip Portable..." -ForegroundColor Cyan
-if (Download-File "https://www.7-zip.org/a/7z2301-x64.exe" "$toolsDir\7z-installer.exe") {
-    Start-Process -FilePath "$toolsDir\7z-installer.exe" -ArgumentList "/S /D=$toolsDir\7zip" -Wait -NoNewWindow
-    Remove-Item "$toolsDir\7z-installer.exe"
+if (Download-File "https://www.7-zip.org/a/7za920.zip" "$toolsDir\7za.zip") {
+    New-Item -ItemType Directory -Force -Path "$toolsDir\7zip" | Out-Null
+    Expand-Archive -Path "$toolsDir\7za.zip" -DestinationPath "$toolsDir\7zip" -Force
+    Copy-Item "$toolsDir\7zip\7za.exe" "$toolsDir\7zip\7z.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$toolsDir\7za.zip" -Force -ErrorAction SilentlyContinue
 }
 
 # 3. Wireshark Portable
@@ -114,7 +116,10 @@ if (Test-Path "$toolsDir\npp.zip") {
 Write-Host "[7/12] ExifTool..." -ForegroundColor Cyan
 if (Download-File "https://downloads.sourceforge.net/project/exiftool/exiftool-13.63_64.zip" "$toolsDir\exiftool.zip") {
     Extract-Archive "$toolsDir\exiftool.zip" "$toolsDir\exiftool"
-    Rename-Item "$toolsDir\exiftool\exiftool(-k).exe" "$toolsDir\exiftool\exiftool.exe" -ErrorAction SilentlyContinue
+    $exifExe = Get-ChildItem -Path "$toolsDir\exiftool" -Recurse -Filter "*exiftool*.exe" | Select-Object -First 1
+    if ($exifExe) {
+        Copy-Item $exifExe.FullName "$toolsDir\exiftool\exiftool.exe" -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # 8. Stegsolve
@@ -137,6 +142,10 @@ Write-Host "[10/12] Steghide..." -ForegroundColor Cyan
 Download-File "http://downloads.sourceforge.net/project/steghide/steghide/0.5.1/steghide-0.5.1-win32.zip" "$toolsDir\steghide.zip"
 if (Test-Path "$toolsDir\steghide.zip") {
     Extract-Archive "$toolsDir\steghide.zip" "$toolsDir\steghide"
+    $shExe = Get-ChildItem -Path "$toolsDir\steghide" -Recurse -Filter "steghide.exe" | Select-Object -First 1
+    if ($shExe -and ($shExe.DirectoryName -ne "$toolsDir\steghide")) {
+        Copy-Item "$($shExe.DirectoryName)\*" "$toolsDir\steghide\" -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # 11. Node.js Portable
@@ -233,15 +242,17 @@ function dcode { Start-Process "https://www.dcode.fr/en" }
 function aperisolve { Start-Process "https://www.aperisolve.com/" }
 
 function stegsolve {
-    & "`$toolsDir\jdk\bin\java.exe" -jar "`$toolsDir\stegsolve.jar"
+    `$javaBin = if (Test-Path "`$toolsDir\jdk\bin\java.exe") { "`$toolsDir\jdk\bin\java.exe" } else { "java.exe" }
+    & `$javaBin -jar "`$toolsDir\stegsolve.jar"
 }
 
 function wireshark {
     param([string]`$file)
+    `$exe = if (Test-Path "`$toolsDir\Wireshark\WiresharkPortable64.exe") { "`$toolsDir\Wireshark\WiresharkPortable64.exe" } elseif (Test-Path "`$toolsDir\WiresharkPortable.exe") { "`$toolsDir\WiresharkPortable.exe" } else { "wireshark.exe" }
     if (`$file) {
-        & "`$toolsDir\WiresharkPortable.exe" `$file
+        & `$exe `$file
     } else {
-        & "`$toolsDir\WiresharkPortable.exe"
+        & `$exe
     }
 }
 
@@ -290,8 +301,8 @@ function Extract-All {
     & "`$toolsDir\7zip\7z.exe" x `$FilePath
 }
 
-function python { & "`$toolsDir\python\python.exe" `$args }
-function pip { & "`$toolsDir\python\python.exe" -m pip `$args }
+function python { if (Test-Path "`$toolsDir\python\python.exe") { & "`$toolsDir\python\python.exe" `$args } else { python.exe `$args } }
+function pip { if (Test-Path "`$toolsDir\python\python.exe") { & "`$toolsDir\python\python.exe" -m pip `$args } else { pip.exe `$args } }
 function node { & "`$toolsDir\nodejs\node.exe" `$args }
 function npm { & "`$toolsDir\nodejs\npm.cmd" `$args }
 
