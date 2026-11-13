@@ -126,7 +126,7 @@ Write-Host "[*] Downloading additional tools..." -ForegroundColor Cyan
 $stegsolvePath = "$ctfToolsDir\stegsolve.jar"
 if (!(Test-Path $stegsolvePath)) {
     Write-Host "  - Downloading Stegsolve..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri "http://www.caesum.com/handbook/Stegsolve.jar" -OutFile $stegsolvePath
+    Invoke-WebRequest -Uri "https://github.com/Giotino/stegsolve/releases/download/v1.4/StegSolve-1.4.jar" -OutFile $stegsolvePath
     Write-Host "  [✓] Stegsolve downloaded" -ForegroundColor Green
 }
 

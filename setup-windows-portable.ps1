@@ -29,9 +29,20 @@ function Download-File {
     param([string]$Url, [string]$Output)
     Write-Host "  Downloading $(Split-Path $Output -Leaf)..." -ForegroundColor Cyan
     try {
-        Invoke-WebRequest -Uri $Url -OutFile $Output -UseBasicParsing
-        Write-Host "  [✓] Downloaded" -ForegroundColor Green
-        return $true
+        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+            & curl.exe -s -L "$Url" -o "$Output"
+            if ((Test-Path "$Output") -and ((Get-Item "$Output").Length -gt 1000)) {
+                Write-Host "  [✓] Downloaded successfully" -ForegroundColor Green
+                return $true
+            }
+        }
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls13
+        Invoke-WebRequest -Uri $Url -OutFile $Output -UseBasicParsing -MaximumRedirection 10 -UserAgent "Mozilla/5.0"
+        if ((Test-Path "$Output") -and ((Get-Item "$Output").Length -gt 1000)) {
+            Write-Host "  [✓] Downloaded successfully" -ForegroundColor Green
+            return $true
+        }
+        throw "Downloaded file is empty or invalid"
     } catch {
         Write-Host "  [✗] Failed: $_" -ForegroundColor Red
         return $false
@@ -72,12 +83,18 @@ if (Download-File "https://www.7-zip.org/a/7z2301-x64.exe" "$toolsDir\7z-install
 
 # 3. Wireshark Portable
 Write-Host "[3/12] Wireshark Portable..." -ForegroundColor Cyan
-Download-File "https://www.wireshark.org/download/win64/WiresharkPortable64_4.0.10.paf.exe" "$toolsDir\WiresharkPortable.exe"
+Download-File "https://www.wireshark.org/download/win64/all-versions/WiresharkPortable64_4.4.0.paf.exe" "$toolsDir\WiresharkPortable.exe"
 
-# 4. HxD Hex Editor Portable
-Write-Host "[4/12] HxD Hex Editor..." -ForegroundColor Cyan
-if (Download-File "https://mh-nexus.de/downloads/HxDSetup.zip" "$toolsDir\hxd.zip") {
+# 4. Hex Editor Portable (HxD with Frhed fallback)
+Write-Host "[4/12] Hex Editor Portable..." -ForegroundColor Cyan
+$hxdOk = Download-File "https://mh-nexus.de/downloads/HxDSetup.zip" "$toolsDir\hxd.zip"
+if ($hxdOk) {
     Extract-Archive "$toolsDir\hxd.zip" "$toolsDir\HxD"
+} else {
+    Write-Host "  [!] HxD host down, downloading Frhed Portable Hex Editor..." -ForegroundColor Yellow
+    if (Download-File "https://github.com/WinMerge/frhed/releases/download/0.10904.2017/frhed-0.10904.2017.22-x64.zip" "$toolsDir\frhed.zip") {
+        Extract-Archive "$toolsDir\frhed.zip" "$toolsDir\HxD"
+    }
 }
 
 # 5. Sysinternals Suite
@@ -95,14 +112,14 @@ if (Test-Path "$toolsDir\npp.zip") {
 
 # 7. ExifTool
 Write-Host "[7/12] ExifTool..." -ForegroundColor Cyan
-if (Download-File "https://exiftool.org/exiftool-12.70.zip" "$toolsDir\exiftool.zip") {
+if (Download-File "https://downloads.sourceforge.net/project/exiftool/exiftool-13.63_64.zip" "$toolsDir\exiftool.zip") {
     Extract-Archive "$toolsDir\exiftool.zip" "$toolsDir\exiftool"
     Rename-Item "$toolsDir\exiftool\exiftool(-k).exe" "$toolsDir\exiftool\exiftool.exe" -ErrorAction SilentlyContinue
 }
 
 # 8. Stegsolve
 Write-Host "[8/12] Stegsolve..." -ForegroundColor Cyan
-Download-File "http://www.caesum.com/handbook/Stegsolve.jar" "$toolsDir\stegsolve.jar"
+Download-File "https://github.com/Giotino/stegsolve/releases/download/v1.4/StegSolve-1.4.jar" "$toolsDir\stegsolve.jar"
 
 # 9. JDK (for running Java tools like Stegsolve, Ghidra)
 Write-Host "[9/12] OpenJDK Portable..." -ForegroundColor Cyan
@@ -179,7 +196,14 @@ cd /d "%~dp0"
 @"
 @echo off
 cd /d "%~dp0"
-start "" "%~dp0tools\HxD\HxD.exe"
+if exist "%~dp0tools\HxD\HxD.exe" (
+    start "" "%~dp0tools\HxD\HxD.exe" %*
+) else (
+    for /r "%~dp0tools\HxD" %%f in (*frhed*.exe) do (
+        start "" "%%f" %*
+        exit /b
+    )
+)
 "@ | Out-File -FilePath "$baseDir\Launch-HxD.bat" -Encoding ASCII
 
 @"
