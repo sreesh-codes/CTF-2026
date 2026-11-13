@@ -5,6 +5,8 @@
 **Duration**: 4-6 hours
 **Format**: Digital Murder Mystery
 
+> 📘 **Detailed Field Playbook**: For an exhaustive, scenario-by-scenario guide on *what software and commands to use for every type of problem*, see [FINALS-TOOL-AND-SCENARIO-PLAYBOOK.md](./FINALS-TOOL-AND-SCENARIO-PLAYBOOK.md).
+
 ---
 
 ## ⚡ ON ARRIVAL (First 5 Minutes)
